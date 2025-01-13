@@ -1,6 +1,6 @@
 [submodule "thirdparty/imgui"]
   path = thirdparty/imgui
-  url = [https://github.com/ocornut/imgui.git]
+  url = https://github.com/ocornut/imgui.git
 [submodule "thirdparty/tinyxml2"]
-  path = thirdparty/tinyxml2
-  url = [https://github.com/leethomason/tinyxml2.git]
+	path = thirdparty/tinyxml2
+	url = https://github.com/leethomason/tinyxml2.git
