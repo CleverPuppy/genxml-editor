@@ -29,7 +29,13 @@ add_executable(imgui-demo
     ${IMGUI_IMPL_SRC}
     thirdparty/imgui/imgui_demo.cpp
     thirdparty/imgui/examples/example_glfw_opengl3/main.cpp)
-target_link_libraries(imgui-demo PRIVATE imguideps glfw dl OpenGL)
+target_link_libraries(imgui-demo PRIVATE imguideps glfw dl)
+if(${OPENGL_opengl_LIBRARY})
+    target_link_libraries(imgui-demo PRIVATE ${OPENGL_opengl_LIBRARY})
+else()
+    target_link_libraries(imgui-demo PRIVATE ${OPENGL_gl_LIBRARY})
+endif()
+
 target_include_directories(imgui-demo PUBLIC thirdparty/imgui/backends)
 
 set(GENXML_EDITOR_SRC
@@ -42,10 +48,17 @@ add_executable(genxml-editor
     ${GENXML_EDITOR_SRC}
     ${IMGUI_IMPL_SRC}
 )
-target_link_libraries(genxml-editor PRIVATE tinyxml2 imguideps glfw OpenGL)
+target_link_libraries(genxml-editor PRIVATE tinyxml2 imguideps glfw)
 if (CMAKE_SYSTEM_NAME  STREQUAL "Linux")
 target_link_libraries(genxml-editor PRIVATE dl pthread)
 endif()
+
+if(${OPENGL_opengl_LIBRARY})
+target_link_libraries(genxml-editor PRIVATE ${OPENGL_opengl_LIBRARY})
+else()
+target_link_libraries(genxml-editor PRIVATE ${OPENGL_gl_LIBRARY})
+endif()
+
 target_include_directories(genxml-editor PUBLIC
 thirdparty/imgui/backends
 thirdparty/imgui/misc/cpp)
