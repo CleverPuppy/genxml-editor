@@ -21,6 +21,7 @@ thirdparty/imgui/misc/cpp/imgui_stdlib.cpp
 
 add_library(imguideps STATIC ${IMGUI_SRC})
 
+set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL)
 find_package(glfw3)
 
@@ -28,7 +29,7 @@ add_executable(imgui-demo
     ${IMGUI_IMPL_SRC}
     thirdparty/imgui/imgui_demo.cpp
     thirdparty/imgui/examples/example_glfw_opengl3/main.cpp)
-target_link_libraries(imgui-demo PRIVATE imguideps glfw dl ${OPENGL_gl_LIBRARY})
+target_link_libraries(imgui-demo PRIVATE imguideps glfw dl OpenGL)
 target_include_directories(imgui-demo PUBLIC thirdparty/imgui/backends)
 
 set(GENXML_EDITOR_SRC
@@ -40,7 +41,10 @@ add_executable(genxml-editor
     ${GENXML_EDITOR_SRC}
     ${IMGUI_IMPL_SRC}
 )
-target_link_libraries(genxml-editor PRIVATE tinyxml2 imguideps glfw dl ${OPENGL_gl_LIBRARY})
+target_link_libraries(genxml-editor PRIVATE tinyxml2 imguideps glfw OpenGL)
+if (CMAKE_SYSTEM_NAME  STREQUAL "Linux")
+target_link_libraries(genxml-editor PRIVATE dl pthread)
+endif()
 target_include_directories(genxml-editor PUBLIC
 thirdparty/imgui/backends
 thirdparty/imgui/misc/cpp)

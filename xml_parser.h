@@ -11,6 +11,7 @@
 
 class XMLParserContext {
 public:
+  friend class XMLViewer;
   std::string filename;
 
   XMLParserContext(const XMLParserContext&) = delete;

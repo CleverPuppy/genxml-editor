@@ -2,6 +2,7 @@
 #define __MAIN_UI_H__
 #include <cstdio>
 #include <functional>
+#include <memory>
 #include <vector>
 #include <string>
 #include <future>
@@ -44,8 +45,9 @@ private:
 	bool isFileLoading = false;
 
 	void OnFileLoading();
+	void OnFileClose();
 	XMLDocData xmlDoc;
-	std::future<bool> loadingResult;
+	std::unique_ptr<std::future<bool>> loadingResult;
 	std::unique_ptr<XMLParserContext> xmlParserContext;
 };
 

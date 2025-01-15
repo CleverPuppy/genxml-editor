@@ -2,14 +2,17 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "imgui_internal.h"
 #include "imgui_stdlib.h"
 #include "xml_parser.h"
-#include <_stdio.h>
+#include "xml_types.h"
 #include <cstddef>
 #include <cstdio>
 #include <future>
+#include <memory>
 #include <queue>
 #include <stdio.h>
+#include <vector>
 #define GL_SILENCE_DEPRECATION
 #if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <GLES2/gl2.h>
@@ -206,6 +209,31 @@ static int PathInputChangeCallback(ImGuiInputTextCallbackData *data) {
     *(bool*)(data->UserData) = false;
     return 1;
 }
+
+static void XMLValueDataDrawWidget(const XMLValueData& valueData) {
+  ImGui::Text("%ld\t%s %s", valueData.value, valueData.name.c_str(), (valueData.info ? valueData.info->c_str() : ""));
+}
+
+static void XMLVecValueDataTable(const std::vector<XMLValueData>& vecValueData, const char* strTableName) {
+  if (ImGui::BeginTable(strTableName, 3, ImGuiTableFlags_Resizable|ImGuiTableFlags_SizingFixedFit)) {
+    ImGui::TableSetupColumn("Name", 0);
+    ImGui::TableSetupColumn("Value", 0);
+    ImGui::TableSetupColumn("Info", 0);
+    ImGui::TableHeadersRow();
+    for (const auto& valueData : vecValueData)
+    {
+      ImGui::TableNextRow();
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", valueData.name.c_str());
+      ImGui::TableNextColumn();
+      ImGui::Text("%ld", valueData.value);
+      ImGui::TableNextColumn();
+      ImGui::Text("%s", valueData.info ? valueData.info->c_str() : "NA");
+    }
+    ImGui::EndTable();
+  }
+}
+
 void XMLViewer::Render() {
   if (!isFileOpened) {
     ImGui::Text("No file opened.");
@@ -239,27 +267,79 @@ void XMLViewer::Render() {
     }
   } else {
     ImGui::Text("Opened file %s", filename.c_str());
+    const XMLDocData& docData = xmlParserContext->parsedDoc;
+    if (ImGui::TreeNode("enum(s)"))
+    {
+      for(const auto& enumData : docData.enumerates)
+      {
+        if (ImGui::TreeNode(enumData.name.c_str()))
+        {
+          XMLVecValueDataTable(enumData.values, "Values");
+          ImGui::TreePop();
+        }
+      }
+      ImGui::TreePop();
+    }
+    if (ImGui::TreeNode("struct(s)"))
+    {
+      for (const auto& structData: docData.structures)
+      {
+        if (ImGui::TreeNode(structData.name.c_str()))
+        {
+          for (const auto& fields : structData.fields) {
+            if (!fields.choices){
+              ImGui::BulletText("%s",fields.name.c_str());
+            } else {
+              if (ImGui::TreeNode(fields.name.c_str()))
+              {
+                XMLVecValueDataTable(fields.choices.value(), "Choices");
+                ImGui::TreePop();
+              }
+            }
+          }
+          ImGui::TreePop();
+        }
+      }
+      ImGui::TreePop();
+    }
+
+    if (ImGui::Button("Close"))
+    {
+      OnFileClose();
+    }
   }
 }
 
 void XMLViewer::OnFileLoading() {
   isFileLoading = true;
   isShowFileLoadError = false;
-  std::future<bool> newLoadingResult = std::async(std::launch::async, [this]() {
-    auto parserContextPtr = std::make_unique<XMLParserContext>(this->filename);
-    bool parseResult = parserContextPtr->init();
-    if (parseResult) {
-      this->xmlParserContext.swap(parserContextPtr);
-      isFileOpened = true;
-      isShowFileDialog = false;
-    } else {
-      isShowFileLoadError = true;
-    }
+  if (loadingResult) loadingResult->wait();
+  auto newLoadingResult = std::make_unique<std::future<bool>>(
+    std::async(std::launch::async, [this]() {
+      auto parserContextPtr = std::make_unique<XMLParserContext>(this->filename);
+      bool parseResult = parserContextPtr->init();
+      if (parseResult) {
+        this->xmlParserContext.swap(parserContextPtr);
+        isFileOpened = true;
+        isShowFileDialog = false;
+      } else {
+        isShowFileLoadError = true;
+      }
 
-    isFileLoading = false;
-    return parseResult;
-  });
+      isFileLoading = false;
+      return parseResult;
+    })
+  );
   loadingResult.swap(newLoadingResult);
+}
+
+void XMLViewer::OnFileClose() {
+  if (isFileLoading) {
+    loadingResult->wait();
+  }
+  xmlParserContext.reset();
+  isFileLoading = false;
+  isFileOpened = false;
 }
 
 // Main code
