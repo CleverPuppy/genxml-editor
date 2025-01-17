@@ -5,6 +5,7 @@
 #include "imgui_internal.h"
 #include "imgui_stdlib.h"
 #include "xml_parser.h"
+#include "xml_saver.h"
 #include "xml_types.h"
 #include <cstddef>
 #include <cstdio>
@@ -66,7 +67,7 @@ bool MainUI::Init() {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // Required on Mac
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // Required on Mac
 #else
   // GL 3.0 + GLSL 130
   const char *glsl_version = "#version 130";
@@ -203,25 +204,32 @@ void MainUI::AppendRenderFunction(RenderFuncType &&func) {
   imguiRenderingFuncs.emplace_back(func);
 }
 
-XMLViewer::XMLViewer() { filename.reserve(MAX_PATH_SIZE); }
+XMLViewer::XMLViewer() {
+  filename.reserve(MAX_PATH_SIZE);
+  filename = "../gen4.xml";
+  OnFileLoading();
+}
 
 static int PathInputChangeCallback(ImGuiInputTextCallbackData *data) {
-    *(bool*)(data->UserData) = false;
-    return 1;
+  *(bool *)(data->UserData) = false;
+  return 1;
 }
 
-static void XMLValueDataDrawWidget(const XMLValueData& valueData) {
-  ImGui::Text("%ld\t%s %s", valueData.value, valueData.name.c_str(), (valueData.info ? valueData.info->c_str() : ""));
+static void XMLValueDataDrawWidget(const XMLValueData &valueData) {
+  ImGui::Text("%ld\t%s %s", valueData.value, valueData.name.c_str(),
+              (valueData.info ? valueData.info->c_str() : ""));
 }
 
-static void XMLVecValueDataTable(const std::vector<XMLValueData>& vecValueData, const char* strTableName) {
-  if (ImGui::BeginTable(strTableName, 3, ImGuiTableFlags_Resizable|ImGuiTableFlags_SizingFixedFit)) {
+static void XMLVecValueDataTable(const std::vector<XMLValueData> &vecValueData,
+                                 const char *strTableName) {
+  if (ImGui::BeginTable(strTableName, 3,
+                        ImGuiTableFlags_Resizable |
+                            ImGuiTableFlags_SizingFixedFit)) {
     ImGui::TableSetupColumn("Name", 0);
     ImGui::TableSetupColumn("Value", 0);
     ImGui::TableSetupColumn("Info", 0);
     ImGui::TableHeadersRow();
-    for (const auto& valueData : vecValueData)
-    {
+    for (const auto &valueData : vecValueData) {
       ImGui::TableNextRow();
       ImGui::TableNextColumn();
       ImGui::Text("%s", valueData.name.c_str());
@@ -253,8 +261,7 @@ void XMLViewer::Render() {
       } else {
         ImGui::InputText(
             "Please input the absolute path of the target xml file", &filename,
-            ImGuiInputTextFlags_CallbackEdit,
-            &PathInputChangeCallback,
+            ImGuiInputTextFlags_CallbackEdit, &PathInputChangeCallback,
             &isShowFileLoadError);
         if (ImGui::Button("Load")) {
           OnFileLoading();
@@ -267,31 +274,24 @@ void XMLViewer::Render() {
     }
   } else {
     ImGui::Text("Opened file %s", filename.c_str());
-    const XMLDocData& docData = xmlParserContext->parsedDoc;
-    if (ImGui::TreeNode("enum(s)"))
-    {
-      for(const auto& enumData : docData.enumerates)
-      {
-        if (ImGui::TreeNode(enumData.name.c_str()))
-        {
+    const XMLDocData &docData = xmlParserContext->parsedDoc;
+    if (ImGui::TreeNode("enum(s)")) {
+      for (const auto &enumData : docData.enumerates) {
+        if (ImGui::TreeNode(enumData.name.c_str())) {
           XMLVecValueDataTable(enumData.values, "Values");
           ImGui::TreePop();
         }
       }
       ImGui::TreePop();
     }
-    if (ImGui::TreeNode("struct(s)"))
-    {
-      for (const auto& structData: docData.structures)
-      {
-        if (ImGui::TreeNode(structData.name.c_str()))
-        {
-          for (const auto& fields : structData.fields) {
-            if (!fields.choices){
-              ImGui::BulletText("%s",fields.name.c_str());
+    if (ImGui::TreeNode("struct(s)")) {
+      for (const auto &structData : docData.structures) {
+        if (ImGui::TreeNode(structData.name.c_str())) {
+          for (const auto &fields : structData.fields) {
+            if (!fields.choices) {
+              ImGui::BulletText("%s", fields.name.c_str());
             } else {
-              if (ImGui::TreeNode(fields.name.c_str()))
-              {
+              if (ImGui::TreeNode(fields.name.c_str())) {
                 XMLVecValueDataTable(fields.choices.value(), "Choices");
                 ImGui::TreePop();
               }
@@ -303,9 +303,44 @@ void XMLViewer::Render() {
       ImGui::TreePop();
     }
 
-    if (ImGui::Button("Close"))
-    {
+    if (ImGui::Button("Close")) {
       OnFileClose();
+    }
+
+    if (ImGui::Button("Save")) {
+      if (toSaveFilename.empty() && !filename.empty()) {
+        toSaveFilename = filename;
+      }
+      toSaveFilename.reserve(FILENAME_MAX);
+      savingMsg.clear();
+      ImGui::OpenPopup("Save");
+    }
+    if (ImGui::BeginPopupModal("Save", NULL,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+
+      if (!savingResult) {
+        ImGui::InputText("File", toSaveFilename.data(),
+                         toSaveFilename.capacity());
+        if (ImGui::Button("Save")) {
+          OnFileSave();
+        }
+      } else {
+        if (savingResult->valid()) {
+          savingMsg += (savingResult.get() ? " Sucess" : " Fail");
+          savingResult.reset();
+        }
+      }
+      if (!savingMsg.empty()) {
+        ImGui::Text("%s.", savingMsg.c_str());
+      }
+      // no begin save or finished save
+      if (!savingResult || savingResult->valid()) {
+        if (ImGui::Button("Cancel")) {
+          savingResult.reset();
+          ImGui::CloseCurrentPopup();
+        }
+      }
+      ImGui::EndPopup();
     }
   }
 }
@@ -313,23 +348,24 @@ void XMLViewer::Render() {
 void XMLViewer::OnFileLoading() {
   isFileLoading = true;
   isShowFileLoadError = false;
-  if (loadingResult) loadingResult->wait();
+  if (loadingResult)
+    loadingResult->wait();
   auto newLoadingResult = std::make_unique<std::future<bool>>(
-    std::async(std::launch::async, [this]() {
-      auto parserContextPtr = std::make_unique<XMLParserContext>(this->filename);
-      bool parseResult = parserContextPtr->init();
-      if (parseResult) {
-        this->xmlParserContext.swap(parserContextPtr);
-        isFileOpened = true;
-        isShowFileDialog = false;
-      } else {
-        isShowFileLoadError = true;
-      }
+      std::async(std::launch::async, [this]() {
+        auto parserContextPtr =
+            std::make_unique<XMLParserContext>(this->filename);
+        bool parseResult = parserContextPtr->init();
+        if (parseResult) {
+          this->xmlParserContext.swap(parserContextPtr);
+          isFileOpened = true;
+          isShowFileDialog = false;
+        } else {
+          isShowFileLoadError = true;
+        }
 
-      isFileLoading = false;
-      return parseResult;
-    })
-  );
+        isFileLoading = false;
+        return parseResult;
+      }));
   loadingResult.swap(newLoadingResult);
 }
 
@@ -340,6 +376,14 @@ void XMLViewer::OnFileClose() {
   xmlParserContext.reset();
   isFileLoading = false;
   isFileOpened = false;
+}
+
+void XMLViewer::OnFileSave() {
+  savingResult = std::make_unique<std::future<bool>>(std::async([this]() {
+    savingMsg = "Saving ...";
+    bool saveResult = SaveToFile(xmlParserContext->parsedDoc, toSaveFilename.c_str());
+    return saveResult;
+  }));
 }
 
 // Main code

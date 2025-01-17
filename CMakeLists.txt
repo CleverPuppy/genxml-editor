@@ -34,6 +34,7 @@ target_include_directories(imgui-demo PUBLIC thirdparty/imgui/backends)
 
 set(GENXML_EDITOR_SRC
     xml_parser.cpp
+    xml_saver.cpp
     main_ui.cpp)
 
 add_executable(genxml-editor

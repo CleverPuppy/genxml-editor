@@ -38,7 +38,9 @@ public:
 	void Render();
 private:
 	std::string filename;
+	std::string toSaveFilename;
 	std::string loadingErrorMsg;
+	std::string savingMsg;
 	bool isFileOpened = false;
 	bool isShowFileDialog = false;
 	bool isShowFileLoadError = false;
@@ -46,8 +48,10 @@ private:
 
 	void OnFileLoading();
 	void OnFileClose();
+	void OnFileSave();
 	XMLDocData xmlDoc;
 	std::unique_ptr<std::future<bool>> loadingResult;
+	std::unique_ptr<std::future<bool>> savingResult;
 	std::unique_ptr<XMLParserContext> xmlParserContext;
 };
 
