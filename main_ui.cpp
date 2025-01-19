@@ -7,6 +7,7 @@
 #include "xml_parser.h"
 #include "xml_saver.h"
 #include "xml_types.h"
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <future>
@@ -216,7 +217,7 @@ static int PathInputChangeCallback(ImGuiInputTextCallbackData *data) {
 }
 
 static void XMLValueDataDrawWidget(const XMLValueData &valueData) {
-  ImGui::Text("%ld\t%s %s", valueData.value, valueData.name.c_str(),
+  ImGui::Text("%llu\t%s %s", valueData.value, valueData.name.c_str(),
               (valueData.info ? valueData.info->c_str() : ""));
 }
 
@@ -234,7 +235,7 @@ static void XMLVecValueDataTable(const std::vector<XMLValueData> &vecValueData,
       ImGui::TableNextColumn();
       ImGui::Text("%s", valueData.name.c_str());
       ImGui::TableNextColumn();
-      ImGui::Text("%ld", valueData.value);
+      ImGui::Text("%llu", valueData.value);
       ImGui::TableNextColumn();
       ImGui::Text("%s", valueData.info ? valueData.info->c_str() : "NA");
     }
@@ -342,6 +343,49 @@ void XMLViewer::Render() {
       }
       ImGui::EndPopup();
     }
+    if (ImGui::Button("Add enum")) {
+      if (!xmlEditEnumUI) {
+        xmlEditEnumUI = std::make_unique<XMLEditEnumUI>();
+      }
+      ImGui::OpenPopup("Edit enum" );
+    }
+    if (ImGui::BeginPopupModal("Edit enum")) {
+
+      xmlEditEnumUI->Render();
+      ImGui::NewLine();
+      if (ModalOKButton()) {
+        xmlParserContext->parsedDoc.enumerates.emplace_back(
+          xmlEditEnumUI->currentEditing
+        );
+        xmlEditEnumUI.reset();
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::SameLine();
+
+      if (ModalCancelButton()) {
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::EndPopup();
+    }
+
+    if (ImGui::Button("Add Struct")) {
+      if (!xmlEditStructUI) xmlEditStructUI = std::make_unique<XMLEditStructUI>();
+      ImGui::OpenPopup("Edit Struct");
+    }
+    if (ImGui::BeginPopupModal("Edit Struct")) {
+      xmlEditStructUI->Render();
+      if (ModalOKButton()) {
+        xmlParserContext->parsedDoc.structures.emplace_back(xmlEditStructUI->currentEditing);
+        xmlEditStructUI.reset();
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::SameLine();
+      if (ModalCancelButton()) {
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::EndPopup();
+    }
+
   }
 }
 

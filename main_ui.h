@@ -8,6 +8,7 @@
 #include <future>
 #include "xml_parser.h"
 #include "xml_types.h"
+#include "xml_ui.h"
 typedef struct GLFWwindow GLFWwindow;
 
 class MainUI
@@ -49,10 +50,11 @@ private:
 	void OnFileLoading();
 	void OnFileClose();
 	void OnFileSave();
-	XMLDocData xmlDoc;
 	std::unique_ptr<std::future<bool>> loadingResult;
 	std::unique_ptr<std::future<bool>> savingResult;
 	std::unique_ptr<XMLParserContext> xmlParserContext;
+	std::unique_ptr<XMLEditEnumUI> xmlEditEnumUI;
+	std::unique_ptr<XMLEditStructUI> xmlEditStructUI;
 };
 
 #endif
